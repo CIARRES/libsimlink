@@ -5,11 +5,20 @@
 #define TYPE_ANALOGOUT		1
 #define TYPE_DIGITALIN		2
 #define TYPE_DIGITALOUT		3
+#define TYPE_GENERICIN		4
+#define TYPE_GENERICOUT		5
 
+#define GENERIC_BUF_SIZE	8
 #define ANALOG_BUF_SIZE		8
 #define DIGITAL_BUF_SIZE	16
 
-#define PLC_STATIONS_PORT	6668
+struct dataPacket
+{
+	void* data;
+	uint16_t count;
+	uint16_t itemSize;
+};
+typedef struct dataPacket DataPacket;
 
 struct stationInfo
 {
@@ -18,6 +27,8 @@ struct stationInfo
 	uint16_t analogOutPorts[ANALOG_BUF_SIZE];
 	uint16_t digitalInPorts[DIGITAL_BUF_SIZE];
 	uint16_t digitalOutPorts[DIGITAL_BUF_SIZE];
+	uint16_t genericInPorts[ANALOG_BUF_SIZE];
+	uint16_t genericOutPorts[ANALOG_BUF_SIZE];
 };
 typedef struct stationInfo StationInfo;
 
@@ -27,6 +38,8 @@ struct stationData
 	int16_t analogOut[ANALOG_BUF_SIZE];
 	bool digitalIn[DIGITAL_BUF_SIZE];
 	bool digitalOut[DIGITAL_BUF_SIZE];
+	struct dataPacket genericIn[ANALOG_BUF_SIZE];
+	struct dataPacket genericOut[ANALOG_BUF_SIZE];
 };
 typedef struct stationData StationData;
 
