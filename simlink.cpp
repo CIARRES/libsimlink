@@ -29,7 +29,7 @@ double convertBufferToDouble(unsigned char *buff)
 	double returnVal;
 	memcpy(&returnVal, buff, 8);
 
-	return returnVal * 100;
+	return returnVal;
 }
 
 void sleep_ms(int milliseconds)
@@ -117,6 +117,15 @@ void addStationPort(char *line, struct stationInfo *station_info)
 	else if(!strncmp(type, "analog_out", 10))
 	{
 		dataPointer = station_info->analogOutPorts;
+	}
+	else if(!strncmp(type, "generic_in", 9))
+	{
+		dataPointer = station_info->genericInPorts;
+	}
+
+	else if(!strncmp(type, "generic_out", 10))
+	{
+		dataPointer = station_info->genericOutPorts;
 	}
 
 	int i = 0;
@@ -234,6 +243,7 @@ void *sendSimulinkData(void *args)
 	int send_len;
 	int16_t *analogPointer;
 	bool *digitalPointer;
+	DataPacket *genericPointer;
 
 	//Create TCP Socket
 	socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -254,6 +264,10 @@ void *sendSimulinkData(void *args)
 			port = model->stationsInfo[stationNumber].digitalOutPorts[varIndex];
 			digitalPointer = &model->stationsData[stationNumber].digitalOut[varIndex];
 			break;
+		case TYPE_GENERICOUT:
+			port = model->stationsInfo[stationNumber].genericOutPorts[varIndex];
+			genericPointer = &model->stationsData[stationNumber].genericOut[varIndex];
+			break;
 	}
 
 	//Initialize Server Structures
@@ -271,9 +285,24 @@ void *sendSimulinkData(void *args)
 
 	while (1)
 	{
-		int16_t value;//[10];
+		void* value;
 		pthread_mutex_lock(&model->lock);
-		(varType == TYPE_DIGITALOUT) ? value = (int16_t)*digitalPointer : value = (int16_t)*analogPointer;
+		if (varType == TYPE_GENERICOUT)
+		{
+			value = malloc(genericPointer->count * genericPointer->itemSize);
+			memcpy(value, genericPointer->data, genericPointer->count * genericPointer->itemSize);
+		}
+		else if (varType == TYPE_ANALOGOUT)
+		{
+			value = malloc(sizeof(int16_t));
+			memcpy(value, analogPointer, sizeof(int16_t));
+		}
+		else if (varType == TYPE_DIGITALOUT)
+		{
+			value = malloc(sizeof(int16_t));
+			memcpy(value, digitalPointer, sizeof(int16_t));
+		}
+
 		//sprintf(value, "%d", *digitalPointer) : sprintf(value, "%d", *analogPointer);
 		pthread_mutex_unlock(&model->lock);
 
@@ -283,8 +312,11 @@ void *sendSimulinkData(void *args)
 		(varType == TYPE_ANALOGOUT) ? strncpy(varType_str, "TYPE_ANALOGOUT", 50) : strncpy(varType_str, "TYPE_DIGITALOUT", 50);
 		printf("Sending data type %s, station %d, index %d, value: %d\n", varType_str, stationNumber, varIndex, value);
 		*/
-		const char* value_bytes = (const char*)&value;
-		send_len = sendto(socket_fd, value_bytes, sizeof(value), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+		const char* value_bytes = (const char*)value;
+
+		unsigned long long size = (varType == TYPE_GENERICOUT) ? genericPointer->count * genericPointer->itemSize : sizeof(int16_t);
+
+		send_len = sendto(socket_fd, value_bytes, size, 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
 		if (send_len < 0)
 		{
 			printf("Error sending data to simulink on socket %d\n", socket_fd);
@@ -311,6 +343,7 @@ void *receiveSimulinkData(void *args)
 	struct sockaddr_in client;
 	int16_t *analogPointer;
 	bool *digitalPointer;
+	DataPacket *genericPointer;
 
 	cli_len = sizeof(client);
 
@@ -323,6 +356,10 @@ void *receiveSimulinkData(void *args)
 		case TYPE_DIGITALIN:
 			port = model->stationsInfo[stationNumber].digitalInPorts[varIndex];
 			digitalPointer = &model->stationsData[stationNumber].digitalIn[varIndex];
+			break;
+		case TYPE_GENERICIN:
+			port = model->stationsInfo[stationNumber].genericInPorts[varIndex];
+			genericPointer = &model->stationsData[stationNumber].genericIn[varIndex];
 			break;
 	}
 
@@ -338,22 +375,49 @@ void *receiveSimulinkData(void *args)
 
 		else
 		{
-			double valueRcv = convertBufferToDouble(rcv_buffer);
 
-			/*
-			//DEBUG
-			printf("Received packet from %s:%d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
-			char varType_str[50];
-			(varType == TYPE_ANALOGOUT) ? strncpy(varType_str, "TYPE_ANALOGOUT", 50) : strncpy(varType_str, "TYPE_DIGITALOUT", 50);
-			printf("Station: %d, Type: %s, Index: %d, Size: %d, Data: %f\n" , stationNumber, varType_str, varIndex, rcv_len, valueRcv);
-			*/
+			double valueRcv;
 
 			pthread_mutex_lock(&model->lock);
-			(varType == TYPE_DIGITALIN) ? (*digitalPointer = (bool)valueRcv) : (*analogPointer = (int16_t)valueRcv);
+			switch (varType)
+			{
+			case TYPE_ANALOGIN:
+				valueRcv = convertBufferToDouble(rcv_buffer);
+				*analogPointer = (int16_t)valueRcv;
+				break;
+			case TYPE_DIGITALIN:
+				valueRcv = convertBufferToDouble(rcv_buffer);
+				*digitalPointer = (valueRcv > 0) ? true : false;
+				break;
+			case TYPE_GENERICIN:
+				genericPointer->count = rcv_len / genericPointer->itemSize;
+				genericPointer->data = malloc(rcv_len);
+				memcpy(genericPointer->data, rcv_buffer, rcv_len);
+				break;
+			default:
+				break;
+			}
 			pthread_mutex_unlock(&model->lock);
 		}
 
 		sleep_ms(model->commDelay);
+	}
+}
+
+void sendGenericData(int idx, simLinkModel *model)
+{
+	int j = 0;
+	while (model->stationsInfo[idx].genericOutPorts[j] != 0)
+	{
+		struct threadArgs *args = new struct threadArgs();
+		args->stationNumber = idx;
+		args->varType = TYPE_GENERICOUT;
+		args->varIndex = j;
+		args->model = model;
+
+		pthread_t sendingThread;
+		pthread_create(&sendingThread, NULL, sendSimulinkData, args);
+		j++;
 	}
 }
 
@@ -425,6 +489,23 @@ void receiveDigitalData(int idx, simLinkModel *model)
 	}
 }
 
+void receiveGenericData(int idx, simLinkModel *model)
+{
+	int j = 0;
+	while (model->stationsInfo[idx].genericInPorts[j] != 0)
+	{
+		struct threadArgs *args = new struct threadArgs();
+		args->stationNumber = idx;
+		args->varType = TYPE_GENERICIN;
+		args->varIndex = j;
+		args->model = model;
+
+		pthread_t receivingThread;
+		pthread_create(&receivingThread, NULL, receiveSimulinkData, args);
+		j++;
+	}
+}
+
 void exchangeDataWithSimulink(simLinkModel *model)
 {
 	for (int i = 0; i < model->numStations; i++)
@@ -440,6 +521,12 @@ void exchangeDataWithSimulink(simLinkModel *model)
 
 		//receiving digital data
 		receiveDigitalData(i, model);
+
+		//sending generic data
+		sendGenericData(i, model);
+
+		//receiving generic data
+		receiveGenericData(i, model);
 	}
 }
 
@@ -481,6 +568,20 @@ void displayInfo(simLinkModel *model)
 		while (model->stationsInfo[i].digitalOutPorts[j] != 0)// && j <= 4)
 		{
 			printf("DigitalOut %d: %d\n", j, model->stationsInfo[i].digitalOutPorts[j]);
+			j++;
+		}
+
+		j = 0;
+		while (model->stationsInfo[i].genericInPorts[j] != 0)// && j <= 4)
+		{
+			printf("GenericIn %d: %d\n", j, model->stationsInfo[i].genericInPorts[j]);
+			j++;
+		}
+
+		j = 0;
+		while (model->stationsInfo[i].genericOutPorts[j] != 0)// && j <= 4)
+		{
+			printf("GenericOut %d: %d\n", j, model->stationsInfo[i].genericOutPorts[j]);
 			j++;
 		}
 	}
