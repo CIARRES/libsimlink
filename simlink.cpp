@@ -21,7 +21,7 @@ struct threadArgs {
     int stationNumber;
     int varType;
     int varIndex;
-    simLinkModel *model;
+    SimLinkModel *model;
 };
 
 double convertBufferToDouble(unsigned char *buff)
@@ -139,7 +139,7 @@ void addStationPort(char *line, struct stationInfo *station_info)
 	dataPointer[i] = atoi(temp_buffer);
 }
 
-void parseConfigFile(simLinkModel *model, char* file_path)
+void parseConfigFile(SimLinkModel *model, char* file_path)
 {
 	string line;
 	char line_str[1024];
@@ -235,7 +235,7 @@ void *sendSimulinkData(void *args)
 	int stationNumber = rcv_args->stationNumber;
 	int varType = rcv_args->varType;
 	int varIndex = rcv_args->varIndex;
-	simLinkModel* model = rcv_args->model;
+	SimLinkModel* model = rcv_args->model;
 
 	int socket_fd, port;
 	struct sockaddr_in server_addr;
@@ -333,7 +333,7 @@ void *receiveSimulinkData(void *args)
 	int stationNumber = rcv_args->stationNumber;
 	int varType = rcv_args->varType;
 	int varIndex = rcv_args->varIndex;
-	simLinkModel* model = rcv_args->model;
+	SimLinkModel* model = rcv_args->model;
 
 	int socket_fd, port;
 	const int BUFF_SIZE = 1024;
@@ -404,7 +404,7 @@ void *receiveSimulinkData(void *args)
 	}
 }
 
-void sendGenericData(int idx, simLinkModel *model)
+void sendGenericData(int idx, SimLinkModel *model)
 {
 	int j = 0;
 	while (model->stationsInfo[idx].genericOutPorts[j] != 0)
@@ -421,7 +421,7 @@ void sendGenericData(int idx, simLinkModel *model)
 	}
 }
 
-void sendAnalogData(int idx, simLinkModel *model)
+void sendAnalogData(int idx, SimLinkModel *model)
 {
 	int j = 0;
 	while (model->stationsInfo[idx].analogOutPorts[j] != 0)
@@ -438,7 +438,7 @@ void sendAnalogData(int idx, simLinkModel *model)
 	}
 }
 
-void sendDigitalData(int idx, simLinkModel *model)
+void sendDigitalData(int idx, SimLinkModel *model)
 {
 	int j = 0;
 	while (model->stationsInfo[idx].digitalOutPorts[j] != 0)
@@ -455,7 +455,7 @@ void sendDigitalData(int idx, simLinkModel *model)
 	}
 }
 
-void receiveAnalogData(int idx, simLinkModel *model)
+void receiveAnalogData(int idx, SimLinkModel *model)
 {
 	int j = 0;
 	while (model->stationsInfo[idx].analogInPorts[j] != 0)
@@ -472,7 +472,7 @@ void receiveAnalogData(int idx, simLinkModel *model)
 	}
 }
 
-void receiveDigitalData(int idx, simLinkModel *model)
+void receiveDigitalData(int idx, SimLinkModel *model)
 {
 	int j = 0;
 	while (model->stationsInfo[idx].digitalInPorts[j] != 0)
@@ -489,7 +489,7 @@ void receiveDigitalData(int idx, simLinkModel *model)
 	}
 }
 
-void receiveGenericData(int idx, simLinkModel *model)
+void receiveGenericData(int idx, SimLinkModel *model)
 {
 	int j = 0;
 	while (model->stationsInfo[idx].genericInPorts[j] != 0)
@@ -506,7 +506,7 @@ void receiveGenericData(int idx, simLinkModel *model)
 	}
 }
 
-void exchangeDataWithSimulink(simLinkModel *model)
+void exchangeDataWithSimulink(SimLinkModel *model)
 {
 	for (int i = 0; i < model->numStations; i++)
 	{
@@ -530,13 +530,13 @@ void exchangeDataWithSimulink(simLinkModel *model)
 	}
 }
 
-void loadModel(simLinkModel** model, char* file_path)
+void loadModel(SimLinkModel** model, char* file_path)
 {
-	*model = (simLinkModel *)malloc(sizeof(simLinkModel));
+	*model = (SimLinkModel *)malloc(sizeof(SimLinkModel));
 	parseConfigFile(*model, file_path);
 }
 
-void displayInfo(simLinkModel *model)
+void displayInfo(SimLinkModel *model)
 {
 	for (int i = 0; i < model->numStations; i++)
 	{
