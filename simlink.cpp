@@ -373,6 +373,12 @@ void *receiveSimulinkData(void *args)
 			printf("Error receiving data on socket %d\n", socket_fd);
 		}
 
+		else if ( varType == TYPE_GENERICIN && rcv_len > genericPointer->maxSize)
+		{
+			printf("%d\t%d\n", rcv_len,genericPointer->maxSize);
+			printf("Received data exceeds buffer size on socket %d\n", socket_fd);
+		}
+
 		else
 		{
 
@@ -391,7 +397,7 @@ void *receiveSimulinkData(void *args)
 				break;
 			case TYPE_GENERICIN:
 				genericPointer->count = rcv_len / genericPointer->itemSize;
-				genericPointer->data = malloc(rcv_len);
+				memset(genericPointer->data, 0, genericPointer->maxSize);
 				memcpy(genericPointer->data, rcv_buffer, rcv_len);
 				break;
 			default:

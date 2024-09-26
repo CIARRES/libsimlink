@@ -17,6 +17,7 @@ struct dataPacket
 	void* data;
 	uint16_t count;
 	uint16_t itemSize;
+	uint16_t maxSize;
 } typedef DataPacket;
 
 struct stationInfo
