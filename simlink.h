@@ -17,8 +17,8 @@ struct dataPacket
 	void* data;
 	uint16_t count;
 	uint16_t itemSize;
-};
-typedef struct dataPacket DataPacket;
+	uint16_t maxSize;
+} typedef DataPacket;
 
 struct stationInfo
 {
@@ -29,8 +29,7 @@ struct stationInfo
 	uint16_t digitalOutPorts[DIGITAL_BUF_SIZE];
 	uint16_t genericInPorts[ANALOG_BUF_SIZE];
 	uint16_t genericOutPorts[ANALOG_BUF_SIZE];
-};
-typedef struct stationInfo StationInfo;
+} typedef StationInfo;
 
 struct stationData
 {
@@ -40,8 +39,7 @@ struct stationData
 	bool digitalOut[DIGITAL_BUF_SIZE];
 	struct dataPacket genericIn[ANALOG_BUF_SIZE];
 	struct dataPacket genericOut[ANALOG_BUF_SIZE];
-};
-typedef struct stationData StationData;
+} typedef StationData;
 
 struct simLinkModel
 {
@@ -51,22 +49,20 @@ struct simLinkModel
 	struct stationInfo* stationsInfo;
 	struct stationData* stationsData;
 	pthread_mutex_t lock;
-};
-
-typedef struct simLinkModel SimLinkModel;
+} typedef SimLinkModel;
 
 //-----------------------------------------------------------------------------
 // Print stations' info
 //-----------------------------------------------------------------------------
-void displayInfo(simLinkModel *model);
+void displayInfo(SimLinkModel *model);
 
 //-----------------------------------------------------------------------------
 // Parse the interface.cfg file looking for the IP address of the Simulink app
 // and for each station information
 //-----------------------------------------------------------------------------
-void loadModel(simLinkModel** model, char* file_path);
+void loadModel(SimLinkModel** model, char* file_path);
 
 //-----------------------------------------------------------------------------
 // Main function responsible to exchange data with the simulink application
 //-----------------------------------------------------------------------------
-void exchangeDataWithSimulink(simLinkModel *model);
+void exchangeDataWithSimulink(SimLinkModel *model);
