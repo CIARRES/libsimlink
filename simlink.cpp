@@ -24,6 +24,12 @@ struct threadArgs {
     SimLinkModel *model;
 };
 
+/***********************************************
+ *                                             *
+ *          Utility Functions                  *
+ *                                             *
+ ***********************************************/
+
 double convertBufferToDouble(unsigned char *buff)
 {
 	double returnVal;
@@ -139,62 +145,11 @@ void addStationPort(char *line, struct stationInfo *station_info)
 	dataPointer[i] = atoi(temp_buffer);
 }
 
-void parseConfigFile(SimLinkModel *model, char* file_path)
-{
-	string line;
-	char line_str[1024];
-	ifstream cfgfile(file_path);
-
-	if (cfgfile.is_open())
-	{
-		while (getline(cfgfile, line))
-		{
-			strncpy(line_str, line.c_str(), 1024);
-			if (line_str[0] != '#' && strlen(line_str) > 1)
-			{
-				if (!strncmp(line_str, "num_stations", 12))
-				{
-					char temp_buffer[10];
-					getData(line_str, temp_buffer, '"', '"');
-					model->numStations = atoi(temp_buffer);
-					model->stationsData = (struct stationData *)malloc(model->numStations * sizeof(struct stationData));
-					model->stationsInfo = (struct stationInfo *)malloc(model->numStations * sizeof(struct stationInfo));
-				}
-				else if (!strncmp(line_str, "comm_delay", 10))
-				{
-					char temp_buffer[10];
-					getData(line_str, temp_buffer, '"', '"');
-					model->commDelay = atoi(temp_buffer);
-				}
-				else if (!strncmp(line_str, "simulink", 8))
-				{
-					getData(line_str, model->simulinkIp, '"', '"');
-				}
-
-				else if (!strncmp(line_str, "station", 7))
-				{
-					int stationNumber = getStationNumber(line_str);
-					char functionType[100];
-					getFunction(line_str, functionType);
-
-					if (!strncmp(functionType, "ip", 2))
-					{
-						getData(line_str, model->stationsInfo[stationNumber].ip, '"', '"');
-					}
-					else if (!strncmp(functionType, "add", 3))
-					{
-						addStationPort(line_str, &model->stationsInfo[stationNumber]);
-					}
-				}
-			}
-		}
-		cfgfile.close();
-	}
-	else
-	{
-		cout << "Error trying to open file!" << endl;
-	}
-}
+/***********************************************
+ *                                             *
+ *          Network Functions                  *
+ *                                             *
+ ***********************************************/
 
 int createUDPServer(int port)
 {
@@ -410,7 +365,19 @@ void *receiveSimulinkData(void *args)
 	}
 }
 
-void sendGenericData(int idx, SimLinkModel *model)
+/***********************************************
+ *                                             *
+ *          SimLink Functions                  *
+ *                                             *
+ ***********************************************/
+
+SimLink::SimLink(SimLinkModel* model)
+{
+	this->model = model;
+}
+
+void
+SimLink::sendGenericData(int idx)
 {
 	int j = 0;
 	while (model->stationsInfo[idx].genericOutPorts[j] != 0)
@@ -427,7 +394,8 @@ void sendGenericData(int idx, SimLinkModel *model)
 	}
 }
 
-void sendAnalogData(int idx, SimLinkModel *model)
+void
+SimLink::sendAnalogData(int idx)
 {
 	int j = 0;
 	while (model->stationsInfo[idx].analogOutPorts[j] != 0)
@@ -444,7 +412,8 @@ void sendAnalogData(int idx, SimLinkModel *model)
 	}
 }
 
-void sendDigitalData(int idx, SimLinkModel *model)
+void
+SimLink::sendDigitalData(int idx)
 {
 	int j = 0;
 	while (model->stationsInfo[idx].digitalOutPorts[j] != 0)
@@ -461,7 +430,8 @@ void sendDigitalData(int idx, SimLinkModel *model)
 	}
 }
 
-void receiveAnalogData(int idx, SimLinkModel *model)
+void
+SimLink::receiveAnalogData(int idx)
 {
 	int j = 0;
 	while (model->stationsInfo[idx].analogInPorts[j] != 0)
@@ -478,7 +448,8 @@ void receiveAnalogData(int idx, SimLinkModel *model)
 	}
 }
 
-void receiveDigitalData(int idx, SimLinkModel *model)
+void
+SimLink::receiveDigitalData(int idx)
 {
 	int j = 0;
 	while (model->stationsInfo[idx].digitalInPorts[j] != 0)
@@ -495,7 +466,8 @@ void receiveDigitalData(int idx, SimLinkModel *model)
 	}
 }
 
-void receiveGenericData(int idx, SimLinkModel *model)
+void
+SimLink::receiveGenericData(int idx)
 {
 	int j = 0;
 	while (model->stationsInfo[idx].genericInPorts[j] != 0)
@@ -512,37 +484,33 @@ void receiveGenericData(int idx, SimLinkModel *model)
 	}
 }
 
-void exchangeDataWithSimulink(SimLinkModel *model)
+void
+SimLink::exchangeDataWithSimulink()
 {
 	for (int i = 0; i < model->numStations; i++)
 	{
 		//sending analog data
-		sendAnalogData(i, model);
+		sendAnalogData(i);
 
 		//receiving analog data
-		receiveAnalogData(i, model);
+		receiveAnalogData(i);
 
 		//sending digital data
-		sendDigitalData(i, model);
+		sendDigitalData(i);
 
 		//receiving digital data
-		receiveDigitalData(i, model);
+		receiveDigitalData(i);
 
 		//sending generic data
-		sendGenericData(i, model);
+		sendGenericData(i);
 
 		//receiving generic data
-		receiveGenericData(i, model);
+		receiveGenericData(i);
 	}
 }
 
-void loadModel(SimLinkModel** model, char* file_path)
-{
-	*model = (SimLinkModel *)malloc(sizeof(SimLinkModel));
-	parseConfigFile(*model, file_path);
-}
-
-void displayInfo(SimLinkModel *model)
+void
+SimLink::displayInfo()
 {
 	for (int i = 0; i < model->numStations; i++)
 	{
@@ -591,4 +559,96 @@ void displayInfo(SimLinkModel *model)
 			j++;
 		}
 	}
+}
+
+void
+SimLink::loadModel(char* file_path)
+{
+	model = (SimLinkModel *)malloc(sizeof(SimLinkModel));
+
+	string line;
+	char line_str[1024];
+	ifstream cfgfile(file_path);
+
+	if (cfgfile.is_open())
+	{
+		while (getline(cfgfile, line))
+		{
+			strncpy(line_str, line.c_str(), 1024);
+			if (line_str[0] != '#' && strlen(line_str) > 1)
+			{
+				if (!strncmp(line_str, "num_stations", 12))
+				{
+					char temp_buffer[10];
+					getData(line_str, temp_buffer, '"', '"');
+					model->numStations = atoi(temp_buffer);
+					model->stationsData = (struct stationData *)malloc(model->numStations * sizeof(struct stationData));
+					model->stationsInfo = (struct stationInfo *)malloc(model->numStations * sizeof(struct stationInfo));
+				}
+				else if (!strncmp(line_str, "comm_delay", 10))
+				{
+					char temp_buffer[10];
+					getData(line_str, temp_buffer, '"', '"');
+					model->commDelay = atoi(temp_buffer);
+				}
+				else if (!strncmp(line_str, "simulink", 8))
+				{
+					getData(line_str, model->simulinkIp, '"', '"');
+				}
+
+				else if (!strncmp(line_str, "station", 7))
+				{
+					int stationNumber = getStationNumber(line_str);
+					char functionType[100];
+					getFunction(line_str, functionType);
+
+					if (!strncmp(functionType, "ip", 2))
+					{
+						getData(line_str, model->stationsInfo[stationNumber].ip, '"', '"');
+					}
+					else if (!strncmp(functionType, "add", 3))
+					{
+						addStationPort(line_str, &model->stationsInfo[stationNumber]);
+					}
+				}
+			}
+		}
+		cfgfile.close();
+	}
+	else
+	{
+		cout << "Error trying to open file!" << endl;
+	}
+}
+
+SimLink::~SimLink()
+{
+    pthread_mutex_lock(&model->lock);
+
+    if (model->stationsInfo != nullptr) {
+        free(model->stationsInfo);
+        model->stationsInfo = nullptr;
+    }
+
+    if (model->stationsData != nullptr) {
+        for (uint8_t i = 0; i < model->numStations; ++i) {
+            for (int j = 0; j < ANALOG_BUF_SIZE; ++j) {
+                if (model->stationsData[i].genericIn[j].data != nullptr) {
+                    free(model->stationsData[i].genericIn[j].data);
+                    model->stationsData[i].genericIn[j].data = nullptr;
+                }
+                if (model->stationsData[i].genericOut[j].data != nullptr) {
+                    free(model->stationsData[i].genericOut[j].data);
+                    model->stationsData[i].genericOut[j].data = nullptr;
+                }
+            }
+        }
+        free(model->stationsData);
+        model->stationsData = nullptr;
+    }
+
+    pthread_mutex_unlock(&model->lock);
+    pthread_mutex_destroy(&model->lock);
+
+    model = nullptr;
 }

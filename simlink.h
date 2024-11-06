@@ -51,18 +51,50 @@ struct simLinkModel
 	pthread_mutex_t lock;
 } typedef SimLinkModel;
 
-//-----------------------------------------------------------------------------
-// Print stations' info
-//-----------------------------------------------------------------------------
-void displayInfo(SimLinkModel *model);
+class SimLink
+{
 
-//-----------------------------------------------------------------------------
-// Parse the interface.cfg file looking for the IP address of the Simulink app
-// and for each station information
-//-----------------------------------------------------------------------------
-void loadModel(SimLinkModel** model, char* file_path);
+public:
+	SimLink(SimLinkModel* model);
 
-//-----------------------------------------------------------------------------
-// Main function responsible to exchange data with the simulink application
-//-----------------------------------------------------------------------------
-void exchangeDataWithSimulink(SimLinkModel *model);
+	~SimLink();
+
+	/**
+	 * @brief Print stations' info
+	 * 
+	 */
+	void displayInfo();
+
+	/**
+	 * @brief Parse the interface.cfg file looking for the IP address of the Simulink app
+	 * and for each station information
+	 * 
+	 * @param file_path 
+	 */
+	void loadModel(char* file_path);
+
+	/**
+	 * @brief Main function responsible to exchange data with the simulink application
+	 * 
+	 */
+	void exchangeDataWithSimulink();
+
+private:
+
+	SimLinkModel *model;
+
+	void sendGenericData(int idx);
+
+	void sendAnalogData(int idx);
+
+	void sendDigitalData(int idx);
+
+	void receiveAnalogData(int idx);
+
+	void receiveDigitalData(int idx);
+
+	void receiveGenericData(int idx);
+
+	void parseConfigFile(char* file_path);
+
+};
